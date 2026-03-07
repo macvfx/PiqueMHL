@@ -43,6 +43,7 @@
 				<string>public.shell-script</string>
 				<string>public.zsh-script</string>
 				<string>com.microsoft.powershell-script</string>
+				<string>public.python-script</string>
 			</array>
 			<key>QLFileExtensions</key>
 			<array>
@@ -56,8 +57,11 @@
 				<string>sh</string>
 				<string>bash</string>
 				<string>zsh</string>
+				<string>rc</string>
 				<string>ps1</string>
 				<string>psm1</string>
+				<string>py</string>
+				<string>pyw</string>
 			</array>
 			<key>QLPreviewWidth</key>
 			<real>1024</real>

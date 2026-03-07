@@ -12,6 +12,8 @@ struct ContentView: View {
         ("TOML", "doc.text", Color.blue),
         ("XML", "doc.text", Color.green),
         ("mobileconfig", "lock.doc", Color.red),
+        ("Shell/RC", "terminal", Color.mint),
+        ("Python", "chevron.left.forwardslash.chevron.right", Color.cyan),
     ]
 
     var body: some View {

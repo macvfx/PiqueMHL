@@ -6,7 +6,7 @@
 import Foundation
 
 enum FileFormat {
-    case json, yaml, toml, xml, mobileconfig, shell, powershell
+    case json, yaml, toml, xml, mobileconfig, shell, powershell, python
 
     init?(pathExtension: String) {
         switch pathExtension.lowercased() {
@@ -15,8 +15,9 @@ enum FileFormat {
         case "toml": self = .toml
         case "xml": self = .xml
         case "mobileconfig", "plist": self = .mobileconfig
-        case "sh", "bash", "zsh", "ksh", "dash": self = .shell
+        case "sh", "bash", "zsh", "ksh", "dash", "rc": self = .shell
         case "ps1", "psm1", "psd1": self = .powershell
+        case "py", "pyw": self = .python
         default: return nil
         }
     }
@@ -29,6 +30,13 @@ enum SyntaxHighlighter {
                 return html
             }
         }
+        if format == .json, let data = source.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           isAppleConfigProfile(json) {
+            if let html = renderJSONProfile(json, rawJSON: source, dark: darkMode) {
+                return html
+            }
+        }
         let tokens: [Token]
         switch format {
         case .json: tokens = tokenizeJSON(source)
@@ -37,6 +45,7 @@ enum SyntaxHighlighter {
         case .xml, .mobileconfig: tokens = tokenizeXML(source)
         case .shell: tokens = tokenizeShell(source)
         case .powershell: tokens = tokenizePowerShell(source)
+        case .python: tokens = tokenizePython(source)
         }
         return wrapHTML(renderTokens(tokens), dark: darkMode)
     }
@@ -50,8 +59,19 @@ enum SyntaxHighlighter {
         "PayloadEnabled"
     ]
 
+    /// Keys used as metadata in DDM declarations
+    private static let ddmMetaKeys: Set<String> = [
+        "Type", "Identifier"
+    ]
+
     /// Extract effective settings, flattening ManagedClient.preferences nesting
+    /// and handling DDM declaration "Payload" key
     private static func extractSettings(_ payload: [String: Any]) -> [String: Any] {
+        // DDM declaration: settings live under "Payload"
+        if payload["Type"] as? String != nil,
+           let ddmPayload = payload["Payload"] as? [String: Any] {
+            return ddmPayload
+        }
         let type = payload["PayloadType"] as? String ?? ""
         if type == "com.apple.ManagedClient.preferences",
            let content = payload["PayloadContent"] as? [String: Any] {
@@ -65,7 +85,7 @@ enum SyntaxHighlighter {
             }
             return content
         }
-        return payload.filter { !payloadMetaKeys.contains($0.key) && $0.key != "PayloadContent" }
+        return payload.filter { !payloadMetaKeys.contains($0.key) && !ddmMetaKeys.contains($0.key) && $0.key != "PayloadContent" && $0.key != "Payload" }
     }
 
     /// Check if a value is simple (renders inline) vs complex (needs its own block)
@@ -230,6 +250,162 @@ enum SyntaxHighlighter {
         h += "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td bgcolor=\"\(t.cell)\" style=\"padding: 12px \(pad)px;\">"
         let xmlTokens = tokenizeXML(rawXML)
         h += "<pre style=\"font: 11px/1.6 Menlo, monospace; margin: 0; white-space: pre-wrap; word-wrap: break-word; color: \(t.key);\">\(renderTokens(xmlTokens))</pre>"
+        h += "</td></tr></table>"
+
+        return wrapMobileconfigHTML(h, t: t)
+    }
+
+    // MARK: - JSON Profile Detection & Renderer
+
+    /// Check if a JSON dictionary looks like an Apple configuration profile
+    private static func isAppleConfigProfile(_ json: [String: Any]) -> Bool {
+        // Top-level "Type": "com.apple.*"
+        if let type = json["Type"] as? String, type.hasPrefix("com.apple.") {
+            return true
+        }
+        // Has PayloadContent with PayloadType "com.apple.*"
+        if let payloads = json["PayloadContent"] as? [[String: Any]] {
+            return payloads.contains { payload in
+                if let type = payload["PayloadType"] as? String, type.hasPrefix("com.apple.") { return true }
+                if let type = payload["Type"] as? String, type.hasPrefix("com.apple.") { return true }
+                return false
+            }
+        }
+        return false
+    }
+
+    /// Render a JSON-based Apple config profile with the HIG two-fold view
+    private static func renderJSONProfile(_ json: [String: Any], rawJSON: String, dark: Bool) -> String? {
+        let t = dark ? Theme.dark : Theme.light
+        var h = ""
+
+        let topType = json["Type"] as? String
+        let isDDM = topType != nil
+
+        // Derive a friendly display name from the Type (e.g. "com.apple.configuration.passcode.settings" → "Passcode Settings")
+        let derivedName: String = {
+            guard let type = topType else { return "Untitled Profile" }
+            let parts = type.split(separator: ".")
+            // Drop common prefixes: com, apple, configuration
+            let meaningful = parts.drop { ["com", "apple", "configuration"].contains($0.lowercased()) }
+            if meaningful.isEmpty { return type }
+            return meaningful.map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
+        }()
+
+        let displayName = json["PayloadDisplayName"] as? String
+            ?? json["DisplayName"] as? String
+            ?? derivedName
+        let identifier = json["PayloadIdentifier"] as? String
+            ?? json["Identifier"] as? String ?? ""
+        let org = json["PayloadOrganization"] as? String
+        let desc = json["PayloadDescription"] as? String
+        let scope = json["PayloadScope"] as? String
+
+        // Determine payloads — either PayloadContent array or the top-level dict itself
+        let payloads: [[String: Any]]
+        if let content = json["PayloadContent"] as? [[String: Any]] {
+            payloads = content
+        } else if isDDM {
+            payloads = [json]
+        } else {
+            payloads = []
+        }
+
+        let payloadTypes = payloads.compactMap {
+            $0["PayloadType"] as? String ?? $0["Type"] as? String
+        }
+
+        let scopeText: String
+        let scopeColor: String
+        if isDDM {
+            scopeText = "Declaration"; scopeColor = t.accent
+        } else {
+            switch scope {
+            case "System": scopeText = "Device Profile"; scopeColor = t.scopeDevice
+            case "User":   scopeText = "User Profile";   scopeColor = t.scopeUser
+            default:       scopeText = "JSON Profile";    scopeColor = t.accent
+            }
+        }
+
+        // Header
+        h += "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" bgcolor=\"\(t.cell)\"><tr><td style=\"padding: 20px \(pad)px 16px \(pad)px;\">"
+        h += "<font color=\"\(scopeColor)\" size=\"1\"><b>\(scopeText.uppercased())</b></font><br>"
+        h += "<font size=\"5\" face=\"-apple-system, Helvetica\" color=\"\(t.text)\"><b>\(esc(displayName))</b></font>"
+        if let org = org { h += "<br><font size=\"2\" color=\"\(t.label)\">\(esc(org))</font>" }
+        if !identifier.isEmpty {
+            h += "<br><font size=\"1\" face=\"Menlo\" color=\"\(t.muted)\">\(esc(identifier))</font>"
+        }
+        if let desc = desc, !desc.isEmpty {
+            h += "<br><font size=\"2\" color=\"\(t.label)\">\(esc(desc))</font>"
+        }
+
+        if !payloadTypes.isEmpty {
+            h += "<br><br>"
+            for pt in payloadTypes {
+                let short = pt.split(separator: ".").last.map(String.init) ?? pt
+                h += "<font size=\"1\" face=\"Menlo\" color=\"\(t.accent)\"><b>\(esc(short))</b></font>"
+                h += "<font color=\"\(t.muted)\"> &middot; </font>"
+            }
+        }
+
+        h += "</td></tr></table>"
+
+        // Payload sections
+        for (idx, payload) in payloads.enumerated() {
+            let name = payload["PayloadDisplayName"] as? String
+                ?? payload["DisplayName"] as? String
+                ?? payload["PayloadType"] as? String
+                ?? payload["Type"] as? String ?? "Payload"
+            let type = payload["PayloadType"] as? String
+                ?? payload["Type"] as? String ?? ""
+            let payloadDesc = payload["PayloadDescription"] as? String
+
+            let sectionLabel = isDDM ? "SETTINGS" : "PAYLOAD \(idx + 1)"
+
+            h += "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">"
+            h += "<tr><td colspan=\"2\" style=\"padding: 28px \(pad)px 0 \(pad)px;\">\(thinLine(t))</td></tr>"
+            h += "<tr><td style=\"padding: 12px \(pad)px 4px \(pad)px;\">"
+            h += "<font size=\"1\" color=\"\(t.muted)\"><b>\(sectionLabel)</b></font><br>"
+            h += "<font size=\"3\" face=\"-apple-system, Helvetica\" color=\"\(t.text)\"><b>\(esc(name))</b></font>"
+            if !type.isEmpty && type != name {
+                h += "<br><font size=\"1\" face=\"Menlo\" color=\"\(t.muted)\">\(esc(type))</font>"
+            }
+            if let d = payloadDesc, !d.isEmpty {
+                h += "<br><font size=\"2\" color=\"\(t.label)\">\(esc(d))</font>"
+            }
+            h += "</td></tr></table>"
+
+            let settings = extractSettings(payload)
+            guard !settings.isEmpty else { continue }
+
+            let sorted = settings.keys.sorted()
+            let simpleKeys = sorted.filter { isSimple(settings[$0]!) }
+            let complexKeys = sorted.filter { !isSimple(settings[$0]!) }
+
+            if !simpleKeys.isEmpty {
+                h += groupStart(t)
+                for (i, key) in simpleKeys.enumerated() {
+                    h += cellRow(key, inlineValue(settings[key]!, key: key, t: t), t: t, last: i == simpleKeys.count - 1)
+                }
+                h += groupEnd()
+            }
+
+            for key in complexKeys {
+                h += sectionHeader(key, t: t)
+                h += renderComplexValue(settings[key]!, t: t)
+            }
+        }
+
+        // JSON Source
+        h += "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">"
+        h += "<tr><td style=\"padding: 28px \(pad)px 0 \(pad)px;\">\(thinLine(t))</td></tr>"
+        h += "<tr><td style=\"padding: 8px \(pad)px 6px \(pad)px;\">"
+        h += "<font size=\"1\" color=\"\(t.muted)\"><b>JSON SOURCE</b></font>"
+        h += "</td></tr></table>"
+
+        h += "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td bgcolor=\"\(t.cell)\" style=\"padding: 12px \(pad)px;\">"
+        let jsonTokens = tokenizeJSON(rawJSON)
+        h += "<pre style=\"font: 11px/1.6 Menlo, monospace; margin: 0; white-space: pre-wrap; word-wrap: break-word; color: \(t.key);\">\(renderTokens(jsonTokens))</pre>"
         h += "</td></tr></table>"
 
         return wrapMobileconfigHTML(h, t: t)
@@ -691,6 +867,42 @@ enum SyntaxHighlighter {
             } else if let op = match[9] {
                 return [Token(text: op, kind: .operator)]
             } else if let num = match[10] {
+                return [Token(text: num, kind: .number)]
+            }
+            return nil
+        }
+    }
+
+    // MARK: - Python Tokenizer
+
+    private static func tokenizePython(_ src: String) -> [Token] {
+        let regex = try! Regex(
+            #"(\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?''')"# +   // 1: triple-quoted string
+            #"|(#[^\n]*)"# +                               // 2: comment
+            #"|(@[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)"# +     // 3: decorator
+            #"|(f\"(?:[^\"\\]|\\.)*\"|f'(?:[^'\\]|\\.)*')"# + // 4: f-string
+            #"|('(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\")"# + // 5: string
+            #"|\b(def|class|if|elif|else|for|while|try|except|finally|with|as|import|from|return|yield|raise|pass|break|continue|and|or|not|is|in|lambda|global|nonlocal|assert|del|async|await|True|False|None)\b"# + // 6: keyword
+            #"|(\*\*|//|->|:=|==|!=|<=|>=|<<|>>|\+=|-=|\*=|/=|%=|&=|\|=|\^=|<|>)"# + // 7: operator
+            #"|\b(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?j?|0[xX][0-9a-fA-F]+|0[oO][0-7]+|0[bB][01]+)\b"# // 8: number
+        ).dotMatchesNewlines()
+        return tokenize(src, regex: regex) { match in
+            if let str = match[1] {
+                return [Token(text: str, kind: .string)]
+            } else if let comment = match[2] {
+                return [Token(text: comment, kind: .comment)]
+            } else if let deco = match[3] {
+                return [Token(text: deco, kind: .attrName)]
+            } else if let fstr = match[4] {
+                return [Token(text: fstr, kind: .string)]
+            } else if let str = match[5] {
+                return [Token(text: str, kind: .string)]
+            } else if let kw = match[6] {
+                let boolish = ["True", "False", "None"].contains(kw)
+                return [Token(text: kw, kind: boolish ? .bool : .keyword)]
+            } else if let op = match[7] {
+                return [Token(text: op, kind: .operator)]
+            } else if let num = match[8] {
                 return [Token(text: num, kind: .number)]
             }
             return nil
