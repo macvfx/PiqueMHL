@@ -508,7 +508,7 @@ enum SyntaxHighlighter {
 
     private static func tokenizeYAML(_ src: String) -> [Token] {
         let regex = try! Regex(#"(?m)(#.*)$|^([\t ]*(?:- )?[A-Za-z_][\w.\-/]*)\s*(:)|("(?:[^"\\]|\\.)*"|'[^']*')|\b(true|false|yes|no|null|~)\b|\b(-?\d+(?:\.\d+)?)\b"#)
-        return tokenize(src, regex: regex) { match in
+        let tokens = tokenize(src, regex: regex) { match in
             if let comment = match[1] {
                 return [Token(text: comment, kind: .comment)]
             } else if let key = match[2], match[3] != nil {
@@ -519,6 +519,71 @@ enum SyntaxHighlighter {
                 return [Token(text: b, kind: .bool)]
             } else if let num = match[6] {
                 return [Token(text: num, kind: .number)]
+            }
+            return nil
+        }
+        return embedSQLInYAML(tokens)
+    }
+
+    /// Re-tokenize plain text following `query:` keys as SQL
+    private static func embedSQLInYAML(_ tokens: [Token]) -> [Token] {
+        var result: [Token] = []
+        var inSQL = false
+        for token in tokens {
+            if token.kind == .key && token.text.trimmingCharacters(in: .whitespaces).hasSuffix("query") {
+                inSQL = true
+                result.append(token)
+                continue
+            }
+            if inSQL {
+                if token.kind == .key {
+                    // Hit the next YAML key — SQL region is over
+                    inSQL = false
+                    result.append(token)
+                    continue
+                }
+                if token.kind == .plain {
+                    let trimmed = token.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmed.isEmpty || trimmed == "|" || trimmed == ">" {
+                        result.append(token)
+                        continue
+                    }
+                    result.append(contentsOf: tokenizeSQL(token.text))
+                    continue
+                }
+                // punctuation (:) after query key, or strings — pass through
+                result.append(token)
+                continue
+            }
+            result.append(token)
+        }
+        return result
+    }
+
+    // MARK: - SQL Tokenizer (for embedded osquery)
+
+    private static func tokenizeSQL(_ src: String) -> [Token] {
+        let regex = try! Regex(
+            #"(?m)(--[^\n]*)"# +                      // 1: line comment
+            #"|('(?:[^'\\]|\\.)*')"# +                // 2: single-quoted string
+            #"|("(?:[^"\\]|\\.)*")"# +                // 3: double-quoted string
+            #"|\b(SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|CROSS|ON|AND|OR|NOT|IN|LIKE|GLOB|AS|GROUP|ORDER|BY|HAVING|LIMIT|OFFSET|UNION|ALL|INSERT|INTO|UPDATE|DELETE|CREATE|DROP|ALTER|COUNT|SUM|AVG|MIN|MAX|DISTINCT|IS|NULL|BETWEEN|EXISTS|CASE|WHEN|THEN|ELSE|END|WITH|USING|COLLATE|ASC|DESC|SET|VALUES|TABLE|INDEX|VIEW|IF|REPLACE|CAST|COALESCE|RECURSIVE)\b"# + // 4: keyword (case-insensitive)
+            #"|\b(\d+(?:\.\d+)?)\b"# +                // 5: number
+            #"|(\*|=|!=|<>|<=|>=|<|>|\|\|)"#          // 6: operator
+        ).ignoresCase()
+        return tokenize(src, regex: regex) { match in
+            if let comment = match[1] {
+                return [Token(text: comment, kind: .comment)]
+            } else if let str = match[2] {
+                return [Token(text: str, kind: .string)]
+            } else if let str = match[3] {
+                return [Token(text: str, kind: .string)]
+            } else if let kw = match[4] {
+                return [Token(text: kw, kind: .keyword)]
+            } else if let num = match[5] {
+                return [Token(text: num, kind: .number)]
+            } else if let op = match[6] {
+                return [Token(text: op, kind: .operator)]
             }
             return nil
         }
