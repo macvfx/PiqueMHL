@@ -16,17 +16,16 @@ MP_ZIP="/tmp/munki-pkg.zip"
 XCODE_BUILD_PATH="$XCODE_PATH/Contents/Developer/usr/bin/xcodebuild"
 XCODE_NOTARY_PATH="$XCODE_PATH/Contents/Developer/usr/bin/notarytool"
 XCODE_STAPLER_PATH="$XCODE_PATH/Contents/Developer/usr/bin/stapler"
-CURRENT_PIQUE_MAIN_BUILD_VERSION=$(/usr/libexec/PlistBuddy -c Print:CFBundleVersion $TOOLSDIR/Pique/Info.plist)
+MARKETING_VERSION=$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' "$TOOLSDIR/Pique.xcodeproj/project.pbxproj" | head -1 | tr -d '[:space:]')
 NEWSUBBUILD=$((100 + $(git rev-parse HEAD~0 | xargs -I{} git rev-list --count {})))
 
-# automate the build version bump
-AUTOMATED_PIQUE_BUILD="$CURRENT_PIQUE_MAIN_BUILD_VERSION.$NEWSUBBUILD"
-/usr/bin/xcrun agvtool new-version -all $AUTOMATED_PIQUE_BUILD
-/usr/bin/xcrun agvtool new-marketing-version $AUTOMATED_PIQUE_BUILD
+# Use marketing version as the release version, build number for internal tracking
+AUTOMATED_PIQUE_BUILD="$MARKETING_VERSION"
+/usr/bin/xcrun agvtool new-version -all $NEWSUBBUILD
 
 # Create files to use for build process info
 echo "$AUTOMATED_PIQUE_BUILD" > $TOOLSDIR/build_info.txt
-echo "$CURRENT_PIQUE_MAIN_BUILD_VERSION" > $TOOLSDIR/build_info_main.txt
+echo "$MARKETING_VERSION" > $TOOLSDIR/build_info_main.txt
 
 if [ -e $XCODE_BUILD_PATH ]; then
   XCODE_BUILD="$XCODE_BUILD_PATH"
@@ -95,9 +94,9 @@ PKG_PATH="$TOOLSDIR/PiquePkg"
 if [ -e $PKG_PATH ]; then
   /bin/rm -rf $PKG_PATH
 fi
-/bin/mkdir -p "$PKG_PATH/payload/Applications"
+/bin/mkdir -p "$PKG_PATH/payload"
 /usr/bin/sudo /usr/sbin/chown -R ${CONSOLEUSER}:wheel "$PKG_PATH"
-/bin/cp -R "$BUILDSDIR/DerivedData/Build/Products/Release/Pique.app" "$PKG_PATH/payload/Applications/Pique.app"
+/bin/cp -R "$BUILDSDIR/DerivedData/Build/Products/Release/Pique.app" "$PKG_PATH/payload/Pique.app"
 
 # Create the json file for signed munkipkg Pique pkg
 /bin/cat << SIGNED_JSONFILE > "$PKG_PATH/build-info.json"
@@ -109,7 +108,7 @@ fi
   "distribution_style": true,
   "version": "$AUTOMATED_PIQUE_BUILD",
   "name": "Pique-$AUTOMATED_PIQUE_BUILD.pkg",
-  "install_location": "/",
+  "install_location": "/Applications",
   "signing_info": {
     "identity": "$INSTALLER_SIGNING_IDENTITY",
     "timestamp": true
