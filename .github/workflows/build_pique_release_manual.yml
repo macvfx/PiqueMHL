@@ -1,0 +1,71 @@
+name: Build Pique Release (Manual)
+
+env:
+  NOTARY_APP_PASSWORD: ${{ secrets.NOTARY_APP_PASSWORD_MAOS }}
+
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout pique repo
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install Apple Xcode certificates
+      uses: apple-actions/import-codesign-certs@v3
+      with:
+        keychain-password: ${{ github.run_id }}
+        p12-file-base64: ${{ secrets.APP_CERTIFICATES_P12_MAOS }}
+        p12-password: ${{ secrets.APP_CERTIFICATES_P12_PASSWORD_MAOS }}
+
+    - name: Install Apple Installer certificates
+      uses: apple-actions/import-codesign-certs@v3
+      with:
+        create-keychain: false # do not create a new keychain for this value
+        keychain-password: ${{ github.run_id }}
+        p12-file-base64: ${{ secrets.PKG_CERTIFICATES_P12_MAOS }}
+        p12-password: ${{ secrets.PKG_CERTIFICATES_P12_PASSWORD_MAOS }}
+
+    - name: Run build package script
+      run: ./build_pique.zsh "CREATE_PKG" "$NOTARY_APP_PASSWORD"
+
+    - name: get environment variables
+      id: get_env_var
+      run: |
+         echo "PIQUE_VERSION=$(/bin/cat ./build_info.txt)" >> $GITHUB_ENV
+         echo "PIQUE_MAIN_VERSION=$(/bin/cat ./build_info_main.txt)" >> $GITHUB_ENV
+
+    - name: Generate changelog
+      id: changelog
+      uses: metcalfc/changelog-generator@v4
+      with:
+        myToken: ${{ secrets.GITHUB_TOKEN }}
+        reverse: 'true'
+
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: Pique ${{env.PIQUE_VERSION}}
+        tag_name: v${{env.PIQUE_VERSION}}
+        draft: true
+        prerelease: false
+        token: ${{ secrets.GITHUB_TOKEN }}
+        body: |
+            # Notes
+            This is a version of Pique created by GitHub Actions.
+            Pique.app has been signed and notarized. The package has been signed, notarized and stapled.
+
+            # Changelog
+            ${{ steps.changelog.outputs.changelog }}
+        files: ${{github.workspace}}/outputs/*.pkg
+
+    - name: Upload packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: packages
+        path: outputs/
