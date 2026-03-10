@@ -32,6 +32,20 @@ For local signing, copy `Config/Signing.local.example.xcconfig` to `Config/Signi
 
 Or use the pkg installer available in [Releases](../../releases).
 
+## Local Development
+
+1. Copy `Config/Signing.local.example.xcconfig` to `Config/Signing.local.xcconfig`.
+2. Set your own `DEVELOPMENT_TEAM` and `CODE_SIGN_IDENTITY` in that local file.
+3. Run:
+
+```sh
+./install_local.zsh
+```
+
+4. Launch `PiqueMHL.app` once if needed.
+5. Enable **Pique MHL** in **System Settings > Login Items & Extensions > Quick Look Extensions**.
+6. Select an `.mhl` file in Finder and press Space to test the preview.
+
 ## Enabling the Extension
 
 On macOS 15.6 and later, Quick Look extensions may need to be explicitly allowed. When you first launch PiqueMHL, you may see a notification:
