@@ -18,7 +18,7 @@ This project is aimed at XML-based Media Hash List files used in camera card ver
 
 ## Requirements
 
-macOS 26.0 or later.
+macOS 15.6 or later.
 
 ## Installation
 
@@ -34,7 +34,7 @@ Or use the pkg installer available in [Releases](../../releases).
 
 ## Enabling the Extension
 
-On macOS 26, Quick Look extensions must be explicitly allowed. When you first launch PiqueMHL, you will see a notification:
+On macOS 15.6 and later, Quick Look extensions may need to be explicitly allowed. When you first launch PiqueMHL, you may see a notification:
 
 <img src="images/quicklook-extension-enable.png" alt="Quick Look Previewer Extension Added notification" width="350" />
 
