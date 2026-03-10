@@ -10,7 +10,7 @@ import OSLog
 
 @objc(PreviewProvider)
 class PreviewProvider: NSViewController, QLPreviewingController {
-    private let logger = Logger(subsystem: "io.macadmins.pique", category: "preview")
+    private let logger = Logger(subsystem: "io.macvfx.piquemhl", category: "preview")
 
     override func loadView() {
         let scrollView = NSScrollView()
@@ -34,7 +34,7 @@ class PreviewProvider: NSViewController, QLPreviewingController {
     func preparePreviewOfFile(at url: URL, completionHandler handler: @escaping (Error?) -> Void) {
         do {
             let text = try FileReader.read(url: url)
-            let format = FileFormat(pathExtension: url.pathExtension) ?? .json
+            let format = FileFormat(pathExtension: url.pathExtension) ?? .mhl
             let isDark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             let html = SyntaxHighlighter.highlight(text, format: format, darkMode: isDark)
 

@@ -63,4 +63,30 @@ final class HTMLTests: XCTestCase {
     func testInlineMarkdownUnderscoreItalic() {
         XCTAssertEqual(SyntaxHighlighter.inlineMarkdown("_italic_"), "<em>italic</em>")
     }
+
+    func testRenderMediaHashListShowsSummary() {
+        let source = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <hashlist version="1.1">
+            <creatorinfo>
+                <tool>OffShoot</tool>
+                <startdate>2024-06-21T04:41:35Z</startdate>
+                <finishdate>2024-06-21T04:48:53Z</finishdate>
+            </creatorinfo>
+            <hash>
+                <file>XDROOT/Clip/903_3855.MXF</file>
+                <size>2110586928</size>
+                <lastmodificationdate>2024-06-20T19:18:03Z</lastmodificationdate>
+                <xxhash64>3cc1da179799aea7</xxhash64>
+                <hashdate>2024-06-21T04:41:50Z</hashdate>
+            </hash>
+        </hashlist>
+        """
+
+        let html = SyntaxHighlighter.highlight(source, format: .mhl)
+        XCTAssertTrue(html.contains("MEDIA HASH LIST"))
+        XCTAssertTrue(html.contains("XDROOT/Clip/903_3855.MXF"))
+        XCTAssertTrue(html.contains("3cc1da179799aea7"))
+        XCTAssertTrue(html.contains("1 file") || html.contains(">1<"))
+    }
 }

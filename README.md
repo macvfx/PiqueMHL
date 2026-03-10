@@ -1,26 +1,20 @@
-# Pique
+# PiqueMHL
 
 <img src="Pique/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png" alt="Pique icon" width="128" height="128" />
 
-A macOS Quick Look extension for syntax-highlighted previews of configuration files and scripts.
+A macOS Quick Look extension for `.mhl` Media Hash List previews.
 
-Select a file in Finder, press Space, and get a formatted preview with proper syntax highlighting to make your MacAdmin life easier — no need to open a text editor to glance at a config file.
+Select an `.mhl` file in Finder, press Space, and get a readable verification preview with creator metadata, source metadata, file counts, sizes, hashes, and the raw XML source.
 
 ## Supported File Types
 
 | Format | Extensions |
 |---|---|
-| JSON | `.json` |
-| YAML | `.yaml`, `.yml` |
-| TOML | `.toml` |
-| XML | `.xml` |
-| Mobileconfig / Plist | `.mobileconfig`, `.plist` |
-| Shell | `.sh`, `.bash`, `.zsh`, `.ksh`, `.dash` |
-| PowerShell | `.ps1`, `.psm1`, `.psd1` |
+| Media Hash List | `.mhl` |
 
-Mobileconfig and plist files get a special HIG-inspired rendering with profile metadata, payload details, and formatted key-value pairs.
+Media Hash List files are rendered as verification manifests with creator metadata, source metadata, file counts, total size, per-file hashes, and the raw XML source.
 
-YAML files with embedded SQL in `query:` values (common in osquery/Fleet configurations) automatically highlight the SQL syntax.
+This project is aimed at XML-based Media Hash List files used in camera card verification and offload workflows.
 
 ## Requirements
 
@@ -34,15 +28,17 @@ You can build from source with Xcode:
 xcodebuild -project Pique.xcodeproj -scheme Pique -config Release
 ```
 
+For local signing, copy `Config/Signing.local.example.xcconfig` to `Config/Signing.local.xcconfig`, set your team and signing identity there, and keep that local file out of Git.
+
 Or use the pkg installer available in [Releases](../../releases).
 
 ## Enabling the Extension
 
-On macOS 26, Quick Look extensions must be explicitly allowed. When you first launch Pique, you will see a notification:
+On macOS 26, Quick Look extensions must be explicitly allowed. When you first launch PiqueMHL, you will see a notification:
 
 <img src="images/quicklook-extension-enable.png" alt="Quick Look Previewer Extension Added notification" width="350" />
 
-Go to **System Settings > Login Items & Extensions > Quick Look Extensions** and enable **Pique**.
+Go to **System Settings > Login Items & Extensions > Quick Look Extensions** and enable **Pique MHL**.
 
 ## License
 

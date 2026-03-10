@@ -65,8 +65,8 @@
 		D100000000000007 /* PiquePreview.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiquePreview.entitlements; sourceTree = "<group>"; };
 		D100000000000008 /* SyntaxHighlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntaxHighlighter.swift; sourceTree = "<group>"; };
 		D100000000000009 /* FileReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileReader.swift; sourceTree = "<group>"; };
-		D200000000000001 /* Pique.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pique.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		D200000000000002 /* PiquePreview.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PiquePreview.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D200000000000001 /* PiqueMHL.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PiqueMHL.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D200000000000002 /* PiqueMHLPreview.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PiqueMHLPreview.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D200000000000003 /* PiqueTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PiqueTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D300000000000001 /* FileFormatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileFormatTests.swift; sourceTree = "<group>"; };
 		D300000000000002 /* FileReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileReaderTests.swift; sourceTree = "<group>"; };
@@ -158,8 +158,8 @@
 		G000000000000005 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D200000000000001 /* Pique.app */,
-				D200000000000002 /* PiquePreview.appex */,
+				D200000000000001 /* PiqueMHL.app */,
+				D200000000000002 /* PiqueMHLPreview.appex */,
 				D200000000000003 /* PiqueTests.xctest */,
 			);
 			name = Products;
@@ -184,7 +184,7 @@
 			);
 			name = Pique;
 			productName = Pique;
-			productReference = D200000000000001 /* Pique.app */;
+			productReference = D200000000000001 /* PiqueMHL.app */;
 			productType = "com.apple.product-type.application";
 		};
 		B200000000000001 /* PiquePreview */ = {
@@ -201,7 +201,7 @@
 			);
 			name = PiquePreview;
 			productName = PiquePreview;
-			productReference = D200000000000002 /* PiquePreview.appex */;
+			productReference = D200000000000002 /* PiqueMHLPreview.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		B300000000000001 /* PiqueTests */ = {
@@ -374,7 +374,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = T4SK8ZXCXG;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -438,7 +438,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = T4SK8ZXCXG;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -466,13 +466,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Pique/Pique.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 13;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = T4SK8ZXCXG;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER = readonly;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -489,7 +487,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Pique/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Pique;
+				INFOPLIST_KEY_CFBundleDisplayName = "Pique MHL";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMainStoryboardFile = "";
@@ -499,10 +497,8 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = 0.1.0b2;
-				PRODUCT_BUNDLE_IDENTIFIER = io.macadmins.pique;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "";
+				PRODUCT_BUNDLE_IDENTIFIER = io.macvfx.piquemhl;
+				PRODUCT_NAME = PiqueMHL;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
 			};
@@ -514,13 +510,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Pique/Pique.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 13;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = T4SK8ZXCXG;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_FILE_ACCESS_DOWNLOADS_FOLDER = readonly;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -537,7 +531,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Pique/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Pique;
+				INFOPLIST_KEY_CFBundleDisplayName = "Pique MHL";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMainStoryboardFile = "";
@@ -547,10 +541,8 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = 0.1.0b2;
-				PRODUCT_BUNDLE_IDENTIFIER = io.macadmins.pique;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "";
+				PRODUCT_BUNDLE_IDENTIFIER = io.macvfx.piquemhl;
+				PRODUCT_NAME = PiqueMHL;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
 			};
@@ -560,16 +552,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PiquePreview/PiquePreview.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 13;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = T4SK8ZXCXG;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = PiquePreview/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = PiquePreview;
+				INFOPLIST_KEY_CFBundleDisplayName = "Pique MHL Preview";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -579,9 +569,8 @@
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = 0.1.0b2;
 				MERGED_BINARY_TYPE = none;
-				PRODUCT_BUNDLE_IDENTIFIER = io.macadmins.pique.PiquePreview;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
+				PRODUCT_BUNDLE_IDENTIFIER = io.macvfx.piquemhl.preview;
+				PRODUCT_NAME = PiqueMHLPreview;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
@@ -592,16 +581,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PiquePreview/PiquePreview.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 13;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = T4SK8ZXCXG;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = PiquePreview/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = PiquePreview;
+				INFOPLIST_KEY_CFBundleDisplayName = "Pique MHL Preview";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -610,9 +597,8 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = 0.1.0b2;
-				PRODUCT_BUNDLE_IDENTIFIER = io.macadmins.pique.PiquePreview;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
+				PRODUCT_BUNDLE_IDENTIFIER = io.macvfx.piquemhl.preview;
+				PRODUCT_NAME = PiqueMHLPreview;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
@@ -628,11 +614,11 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = 0.1.0b2;
-				PRODUCT_BUNDLE_IDENTIFIER = io.macadmins.pique.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.macvfx.piquemhl.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 6.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Pique.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Pique";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PiqueMHL.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PiqueMHL";
 			};
 			name = Debug;
 		};
@@ -646,11 +632,11 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
 				MARKETING_VERSION = 0.1.0b2;
-				PRODUCT_BUNDLE_IDENTIFIER = io.macadmins.pique.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.macvfx.piquemhl.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 6.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Pique.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Pique";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PiqueMHL.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PiqueMHL";
 			};
 			name = Release;
 		};

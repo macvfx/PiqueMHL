@@ -7,25 +7,21 @@ import SwiftUI
 
 struct ContentView: View {
     private let formats = [
-        ("JSON", "doc.text", Color.orange),
-        ("YAML", "doc.text", Color.purple),
-        ("TOML", "doc.text", Color.blue),
-        ("XML", "doc.text", Color.green),
-        ("mobileconfig", "lock.doc", Color.red),
-        ("Shell", "terminal", Color.mint),
-        ("Python", "chevron.left.forwardslash.chevron.right", Color.cyan),
+        (".mhl", "doc.text.magnifyingglass", Color.orange),
+        ("Media Hash List", "externaldrive.badge.checkmark", Color.blue),
+        ("XML Manifest", "chevron.left.forwardslash.chevron.right", Color.green),
     ]
 
     var body: some View {
         VStack(spacing: 24) {
-            Image(systemName: "eye.fill")
+            Image(systemName: "checkmark.seal.text.page.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
 
-            Text("Pique")
+            Text("PiqueMHL")
                 .font(.largeTitle.bold())
 
-            Text("QuickLook previews for config files")
+            Text("Quick Look previews for Media Hash Lists")
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 16) {
@@ -39,16 +35,28 @@ struct ContentView: View {
                 }
             }
 
-            Text("Select a supported file in Finder and press Space to preview.")
+            Text("Supports `.mhl` Media Hash List manifests used for camera card verification workflows.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 560)
+
+            Text("Select an `.mhl` file in Finder and press Space to preview hashes, creator metadata, and XML source.")
                 .font(.callout)
                 .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 560)
                 .padding(.top, 4)
         }
         .padding(48)
-        .frame(minWidth: 500, minHeight: 300)
+        .frame(minWidth: 640, minHeight: 340)
     }
 }
 
-#Preview {
-    ContentView()
+#if DEBUG
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+    }
 }
+#endif

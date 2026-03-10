@@ -1,0 +1,6 @@
+// Copy this file to Config/Signing.local.xcconfig and fill in your values.
+// The real Signing.local.xcconfig is gitignored.
+
+DEVELOPMENT_TEAM = YOURTEAMID
+CODE_SIGN_IDENTITY = Apple Development
+CODE_SIGN_STYLE = Automatic

@@ -72,6 +72,10 @@ final class FileFormatTests: XCTestCase {
         XCTAssertEqual(FileFormat(pathExtension: "adoc"), .markdown)
     }
 
+    func testMHL() {
+        XCTAssertEqual(FileFormat(pathExtension: "mhl"), .mhl)
+    }
+
     // MARK: - Case insensitivity
 
     func testCaseInsensitive() {

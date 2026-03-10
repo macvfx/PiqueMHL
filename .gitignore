@@ -24,6 +24,9 @@ outputs/
 build_info.txt
 build_info_main.txt
 PiquePkg/
+mhl/
+/tmp/
+Config/Signing.local.xcconfig
 
 # Swift Package Manager
 .build/

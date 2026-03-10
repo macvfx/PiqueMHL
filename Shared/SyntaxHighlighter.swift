@@ -6,7 +6,7 @@
 import Foundation
 
 enum FileFormat {
-    case json, yaml, toml, xml, mobileconfig, shell, powershell, python, ruby, go, rust, javascript, markdown
+    case json, yaml, toml, xml, mobileconfig, shell, powershell, python, ruby, go, rust, javascript, markdown, mhl
 
     init?(pathExtension: String) {
         switch pathExtension.lowercased() {
@@ -23,6 +23,7 @@ enum FileFormat {
         case "rs": self = .rust
         case "js", "jsx", "ts", "tsx", "mjs", "cjs": self = .javascript
         case "md", "markdown", "adoc": self = .markdown
+        case "mhl": self = .mhl
         default: return nil
         }
     }
@@ -56,11 +57,504 @@ enum SyntaxHighlighter {
         case .rust: tokens = tokenizeRust(source)
         case .javascript: tokens = tokenizeJavaScript(source)
         case .markdown: return renderMarkdown(source, dark: darkMode)
+        case .mhl: return renderMediaHashList(source, dark: darkMode)
         }
         return wrapHTML(renderTokens(tokens), dark: darkMode)
     }
 
+    static func renderMHTML(_ source: String, dark: Bool = false) -> String {
+        let normalized = normalizeLineEndings(source)
+        guard let entity = parseMIMEEntity(normalized) else {
+            return wrapHTML("<pre>\(escapeHTML(source))</pre>", dark: dark)
+        }
+
+        let rendered = renderMIMEEntity(entity)
+        if let html = rendered.html, !html.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return wrapMHTMLDocument(inlineResources(in: html, resources: rendered.resources), dark: dark)
+        }
+        if let text = rendered.plainText, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return wrapHTML("<pre>\(escapeHTML(text))</pre>", dark: dark)
+        }
+        return wrapHTML("<pre>\(escapeHTML(source))</pre>", dark: dark)
+    }
+
+    private struct MIMEEntity {
+        let headers: [String: String]
+        let body: String
+    }
+
+    private struct RenderedMIME {
+        var html: String?
+        var plainText: String?
+        var resources: [String: String] = [:]
+    }
+
+    private static func normalizeLineEndings(_ source: String) -> String {
+        source.replacingOccurrences(of: "\r\n", with: "\n")
+              .replacingOccurrences(of: "\r", with: "\n")
+    }
+
+    private static func parseMIMEEntity(_ source: String) -> MIMEEntity? {
+        let separator = "\n\n"
+        let parts = source.components(separatedBy: separator)
+        guard parts.count >= 2 else { return nil }
+        let headerBlock = parts[0]
+        let body = parts.dropFirst().joined(separator: separator)
+        return MIMEEntity(headers: parseHeaders(headerBlock), body: body)
+    }
+
+    private static func parseHeaders(_ block: String) -> [String: String] {
+        var headers: [String: String] = [:]
+        var currentKey: String?
+
+        for rawLine in block.components(separatedBy: "\n") {
+            if rawLine.hasPrefix(" ") || rawLine.hasPrefix("\t"), let key = currentKey {
+                headers[key, default: ""] += " " + rawLine.trimmingCharacters(in: .whitespaces)
+                continue
+            }
+            guard let colon = rawLine.firstIndex(of: ":") else { continue }
+            let key = rawLine[..<colon].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let value = rawLine[rawLine.index(after: colon)...].trimmingCharacters(in: .whitespacesAndNewlines)
+            headers[key] = value
+            currentKey = key
+        }
+
+        return headers
+    }
+
+    private static func renderMIMEEntity(_ entity: MIMEEntity) -> RenderedMIME {
+        let contentTypeHeader = entity.headers["content-type"] ?? "text/plain"
+        let contentType = mimeType(from: contentTypeHeader)
+
+        if contentType.hasPrefix("multipart/"),
+           let boundary = headerParameter("boundary", in: contentTypeHeader) {
+            var rendered = RenderedMIME()
+            for part in splitMultipartBody(entity.body, boundary: boundary) {
+                let child = renderMIMEEntity(part)
+                if rendered.html == nil { rendered.html = child.html }
+                if rendered.plainText == nil { rendered.plainText = child.plainText }
+                rendered.resources.merge(child.resources) { current, _ in current }
+            }
+            return rendered
+        }
+
+        let decodedData = decodeBody(entity.body, encoding: entity.headers["content-transfer-encoding"])
+        let charset = headerParameter("charset", in: contentTypeHeader)
+
+        if contentType == "text/html" {
+            return RenderedMIME(
+                html: decodeText(decodedData, charset: charset),
+                plainText: nil,
+                resources: [:]
+            )
+        }
+
+        if contentType == "text/plain" {
+            return RenderedMIME(
+                html: nil,
+                plainText: decodeText(decodedData, charset: charset),
+                resources: [:]
+            )
+        }
+
+        let dataURL = "data:\(contentType);base64,\(decodedData.base64EncodedString())"
+        var resources: [String: String] = [:]
+        if let contentID = entity.headers["content-id"] {
+            let cleaned = contentID.trimmingCharacters(in: CharacterSet(charactersIn: "<> \t\r\n"))
+            if !cleaned.isEmpty {
+                resources["cid:\(cleaned)"] = dataURL
+            }
+        }
+        if let contentLocation = entity.headers["content-location"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !contentLocation.isEmpty {
+            resources[contentLocation] = dataURL
+        }
+
+        return RenderedMIME(html: nil, plainText: nil, resources: resources)
+    }
+
+    private static func mimeType(from contentTypeHeader: String) -> String {
+        contentTypeHeader
+            .split(separator: ";", maxSplits: 1)
+            .first?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() ?? "text/plain"
+    }
+
+    private static func headerParameter(_ name: String, in header: String) -> String? {
+        for segment in header.split(separator: ";").dropFirst() {
+            let parts = segment.split(separator: "=", maxSplits: 1)
+            guard parts.count == 2 else { continue }
+            let key = parts[0].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard key == name.lowercased() else { continue }
+            return parts[1]
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+        }
+        return nil
+    }
+
+    private static func splitMultipartBody(_ body: String, boundary: String) -> [MIMEEntity] {
+        let marker = "--\(boundary)"
+        let endMarker = "--\(boundary)--"
+        var parts: [String] = []
+        var current: [String] = []
+        var collecting = false
+
+        for line in body.components(separatedBy: "\n") {
+            if line == marker || line == endMarker {
+                if collecting, !current.isEmpty {
+                    parts.append(current.joined(separator: "\n"))
+                    current.removeAll()
+                }
+                collecting = line != endMarker
+                continue
+            }
+            if collecting {
+                current.append(line)
+            }
+        }
+
+        return parts.compactMap(parseMIMEEntity)
+    }
+
+    private static func decodeBody(_ body: String, encoding: String?) -> Data {
+        let normalizedEncoding = encoding?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch normalizedEncoding {
+        case "base64":
+            let compact = body.components(separatedBy: .whitespacesAndNewlines).joined()
+            return Data(base64Encoded: compact) ?? Data(body.utf8)
+        case "quoted-printable":
+            return decodeQuotedPrintable(body)
+        default:
+            return Data(body.utf8)
+        }
+    }
+
+    private static func decodeText(_ data: Data, charset: String?) -> String {
+        let normalizedCharset = charset?.lowercased()
+        switch normalizedCharset {
+        case "utf-8", "utf8":
+            return String(data: data, encoding: .utf8) ?? String(decoding: data, as: UTF8.self)
+        case "iso-8859-1", "latin1":
+            return String(data: data, encoding: .isoLatin1) ?? String(decoding: data, as: UTF8.self)
+        case "us-ascii", "ascii":
+            return String(data: data, encoding: .ascii) ?? String(decoding: data, as: UTF8.self)
+        default:
+            return String(data: data, encoding: .utf8)
+                ?? String(data: data, encoding: .isoLatin1)
+                ?? String(decoding: data, as: UTF8.self)
+        }
+    }
+
+    private static func decodeQuotedPrintable(_ input: String) -> Data {
+        let bytes = Array(input.utf8)
+        var output = Data()
+        var index = 0
+
+        while index < bytes.count {
+            let byte = bytes[index]
+            if byte == 61 {
+                if index + 1 < bytes.count, bytes[index + 1] == 10 {
+                    index += 2
+                    continue
+                }
+                if index + 2 < bytes.count, bytes[index + 1] == 13, bytes[index + 2] == 10 {
+                    index += 3
+                    continue
+                }
+                if index + 2 < bytes.count,
+                   let hi = hexNibble(bytes[index + 1]),
+                   let lo = hexNibble(bytes[index + 2]) {
+                    output.append((hi << 4) | lo)
+                    index += 3
+                    continue
+                }
+            }
+
+            output.append(byte)
+            index += 1
+        }
+
+        return output
+    }
+
+    private static func hexNibble(_ byte: UInt8) -> UInt8? {
+        switch byte {
+        case 48...57: return byte - 48
+        case 65...70: return byte - 55
+        case 97...102: return byte - 87
+        default: return nil
+        }
+    }
+
+    private static func inlineResources(in html: String, resources: [String: String]) -> String {
+        var result = html
+        for (reference, dataURL) in resources.sorted(by: { $0.key.count > $1.key.count }) {
+            result = result.replacingOccurrences(of: reference, with: dataURL)
+        }
+        return result
+    }
+
+    private static func wrapMHTMLDocument(_ html: String, dark: Bool) -> String {
+        let theme = dark
+            ? ("#1c1c1e", "#f5f5f7", "#2c2c2e")
+            : ("#ffffff", "#1f1f24", "#d9d9de")
+        let style = """
+        <style>
+        :root { color-scheme: \(dark ? "dark" : "light"); }
+        body { margin: 0; padding: 20px; background: \(theme.0); color: \(theme.1); font: 15px -apple-system, BlinkMacSystemFont, sans-serif; }
+        img { max-width: 100%; height: auto; }
+        pre { white-space: pre-wrap; }
+        blockquote { border-left: 3px solid \(theme.2); margin-left: 0; padding-left: 12px; }
+        </style>
+        """
+
+        if html.range(of: "<head", options: .caseInsensitive) != nil,
+           let headClose = html.range(of: "</head>", options: .caseInsensitive) {
+            var output = html
+            output.insert(contentsOf: style, at: headClose.lowerBound)
+            return output
+        }
+
+        if html.range(of: "<html", options: .caseInsensitive) != nil {
+            return html.replacingOccurrences(of: "<html>", with: "<html><head>\(style)<meta charset=\"utf-8\"></head>", options: .caseInsensitive)
+        }
+
+        return """
+        <html>
+        <head>
+        <meta charset="utf-8">
+        \(style)
+        </head>
+        <body>
+        \(html)
+        </body>
+        </html>
+        """
+    }
+
+    private static func renderMediaHashList(_ source: String, dark: Bool) -> String {
+        guard let data = source.data(using: .utf8),
+              let manifest = parseMediaHashList(data) else {
+            return wrapHTML("<pre>\(escapeHTML(source))</pre>", dark: dark)
+        }
+
+        let t = dark ? Theme.dark : Theme.light
+        var h = ""
+
+        let totalBytes = manifest.hashes.reduce(Int64(0)) { $0 + $1.size }
+        let totalFiles = manifest.hashes.count
+        let firstHash = manifest.hashes.first?.hashdate
+        let lastHash = manifest.hashes.last?.hashdate
+        let title = manifest.sourceInfo["Source Name"] ?? manifest.rootPath?.split(separator: "/").last.map(String.init) ?? "Media Hash List"
+
+        h += "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" bgcolor=\"\(t.cell)\"><tr><td style=\"padding: 20px \(pad)px 16px \(pad)px;\">"
+        h += "<font color=\"\(t.accent)\" size=\"1\"><b>MEDIA HASH LIST</b></font><br>"
+        h += "<font size=\"5\" face=\"-apple-system, Helvetica\" color=\"\(t.text)\"><b>\(esc(title))</b></font>"
+        h += "<br><font size=\"1\" face=\"Menlo\" color=\"\(t.muted)\">version \(esc(manifest.version))</font>"
+        if let tool = manifest.creatorInfo["tool"] {
+            h += "<br><font size=\"2\" color=\"\(t.label)\">\(esc(tool))</font>"
+        }
+        if let rootPath = manifest.rootPath {
+            h += "<br><font size=\"1\" face=\"Menlo\" color=\"\(t.muted)\">\(esc(rootPath))</font>"
+        }
+        h += "</td></tr></table>"
+
+        h += sectionHeader("Summary", t: t)
+        h += groupStart(t)
+        h += cellRow("Files", "<font size=\"2\" color=\"\(t.accent)\"><b>\(totalFiles)</b></font>", t: t)
+        h += cellRow("Total Size", "<font size=\"2\" color=\"\(t.text)\">\(esc(formatByteCount(totalBytes)))</font>", t: t)
+        if let startDate = manifest.creatorInfo["startdate"] {
+            h += cellRow("Started", "<font size=\"2\" color=\"\(t.text)\">\(esc(startDate))</font>", t: t)
+        }
+        if let finishDate = manifest.creatorInfo["finishdate"] {
+            h += cellRow("Finished", "<font size=\"2\" color=\"\(t.text)\">\(esc(finishDate))</font>", t: t)
+        }
+        if let firstHash {
+            h += cellRow("First Hash", "<font size=\"2\" color=\"\(t.text)\">\(esc(firstHash))</font>", t: t)
+        }
+        if let lastHash {
+            h += cellRow("Last Hash", "<font size=\"2\" color=\"\(t.text)\">\(esc(lastHash))</font>", t: t, last: true)
+        } else {
+            h += "</table>"
+        }
+        if lastHash != nil {
+            h += groupEnd()
+        }
+
+        if !manifest.sourceInfo.isEmpty {
+            h += sectionHeader("Source Info", t: t)
+            h += groupStart(t)
+            let keys = manifest.sourceInfo.keys.sorted()
+            for (index, key) in keys.enumerated() {
+                h += cellRow(key, "<font size=\"2\" color=\"\(t.text)\">\(esc(manifest.sourceInfo[key] ?? ""))</font>", t: t, last: index == keys.count - 1)
+            }
+            h += groupEnd()
+        }
+
+        if !manifest.creatorInfo.isEmpty {
+            h += sectionHeader("Creator", t: t)
+            h += groupStart(t)
+            let keys = manifest.creatorInfo.keys.sorted()
+            for (index, key) in keys.enumerated() {
+                h += cellRow(key, "<font size=\"2\" color=\"\(t.text)\">\(esc(manifest.creatorInfo[key] ?? ""))</font>", t: t, last: index == keys.count - 1)
+            }
+            h += groupEnd()
+        }
+
+        h += sectionHeader("Entries", t: t)
+        for (index, entry) in manifest.hashes.prefix(25).enumerated() {
+            h += "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td style=\"padding: 10px \(pad)px 4px \(pad)px;\">"
+            h += "<font size=\"1\" color=\"\(t.label)\"><b>ENTRY \(index + 1)</b></font><br>"
+            h += "<font size=\"2\" face=\"Menlo\" color=\"\(t.text)\">\(esc(entry.file))</font>"
+            h += "</td></tr></table>"
+            h += groupStart(t)
+            h += cellRow("Size", "<font size=\"2\" color=\"\(t.text)\">\(esc(formatByteCount(entry.size)))</font>", t: t)
+            if let modified = entry.lastmodificationdate {
+                h += cellRow("Modified", "<font size=\"2\" color=\"\(t.text)\">\(esc(modified))</font>", t: t)
+            }
+            if let hashDate = entry.hashdate {
+                h += cellRow("Hash Date", "<font size=\"2\" color=\"\(t.text)\">\(esc(hashDate))</font>", t: t)
+            }
+            if let xxhash64 = entry.xxhash64 {
+                h += cellRow("xxHash64", "<font size=\"1\" face=\"Menlo\" color=\"\(t.accent)\">\(esc(xxhash64))</font>", t: t)
+            }
+            if let xxhash64be = entry.xxhash64be {
+                h += cellRow("xxHash64 BE", "<font size=\"1\" face=\"Menlo\" color=\"\(t.accent)\">\(esc(xxhash64be))</font>", t: t, last: true)
+            } else {
+                h += groupEnd()
+                continue
+            }
+            h += groupEnd()
+        }
+
+        if manifest.hashes.count > 25 {
+            h += "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td style=\"padding: 8px \(pad)px 0 \(pad)px;\">"
+            h += "<font size=\"1\" color=\"\(t.muted)\">Showing first 25 of \(manifest.hashes.count) entries.</font>"
+            h += "</td></tr></table>"
+        }
+
+        h += "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">"
+        h += "<tr><td style=\"padding: 28px \(pad)px 0 \(pad)px;\">\(thinLine(t))</td></tr>"
+        h += "<tr><td style=\"padding: 8px \(pad)px 6px \(pad)px;\">"
+        h += "<font size=\"1\" color=\"\(t.muted)\"><b>XML SOURCE</b></font>"
+        h += "</td></tr></table>"
+        h += "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td bgcolor=\"\(t.cell)\" style=\"padding: 12px \(pad)px;\">"
+        h += "<pre style=\"font: 11px/1.6 Menlo, monospace; margin: 0; white-space: pre-wrap; word-wrap: break-word; color: \(t.key);\">\(renderTokens(tokenizeXML(source)))</pre>"
+        h += "</td></tr></table>"
+
+        return wrapMobileconfigHTML(h, t: t)
+    }
+
+    private static func formatByteCount(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useBytes, .useKB, .useMB, .useGB, .useTB]
+        formatter.countStyle = .file
+        formatter.includesUnit = true
+        formatter.isAdaptive = true
+        return formatter.string(fromByteCount: bytes)
+    }
+
+    private static func parseMediaHashList(_ data: Data) -> MediaHashListDocument? {
+        let parserDelegate = MediaHashListParserDelegate()
+        let parser = XMLParser(data: data)
+        parser.delegate = parserDelegate
+        guard parser.parse(), parserDelegate.version != nil else {
+            return nil
+        }
+        return MediaHashListDocument(
+            version: parserDelegate.version ?? "1.0",
+            rootPath: parserDelegate.rootPath,
+            creatorInfo: parserDelegate.creatorInfo,
+            sourceInfo: parserDelegate.sourceInfo,
+            hashes: parserDelegate.hashes
+        )
+    }
+
     // MARK: - Mobileconfig Renderer
+
+    private struct MediaHashListDocument {
+        let version: String
+        let rootPath: String?
+        let creatorInfo: [String: String]
+        let sourceInfo: [String: String]
+        let hashes: [MediaHashEntry]
+    }
+
+    private struct MediaHashEntry {
+        var file: String = ""
+        var size: Int64 = 0
+        var lastmodificationdate: String?
+        var xxhash64be: String?
+        var xxhash64: String?
+        var hashdate: String?
+    }
+
+    private final class MediaHashListParserDelegate: NSObject, XMLParserDelegate {
+        var version: String?
+        var rootPath: String?
+        var creatorInfo: [String: String] = [:]
+        var sourceInfo: [String: String] = [:]
+        var hashes: [MediaHashEntry] = []
+
+        private var elementStack: [String] = []
+        private var currentValue = ""
+        private var currentHash: MediaHashEntry?
+        private var currentSourceFieldName: String?
+
+        func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
+            elementStack.append(elementName)
+            currentValue = ""
+
+            if elementName == "hashlist" {
+                version = attributeDict["version"]
+            } else if elementName == "hash" {
+                currentHash = MediaHashEntry()
+            } else if elementName == "sourceInfoField" {
+                currentSourceFieldName = attributeDict["name"]
+            } else if elementName == "rootPath" {
+                rootPath = nil
+            }
+        }
+
+        func parser(_ parser: XMLParser, foundCharacters string: String) {
+            currentValue += string
+        }
+
+        func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+            let value = currentValue.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if let currentHash, !value.isEmpty, elementStack.contains("hash") {
+                var updated = currentHash
+                switch elementName {
+                case "file": updated.file = value
+                case "size": updated.size = Int64(value) ?? 0
+                case "lastmodificationdate": updated.lastmodificationdate = value
+                case "xxhash64be": updated.xxhash64be = value
+                case "xxhash64": updated.xxhash64 = value
+                case "hashdate": updated.hashdate = value
+                default: break
+                }
+                self.currentHash = updated
+            } else if elementStack.contains("creatorinfo"), !value.isEmpty {
+                creatorInfo[elementName] = value
+            } else if elementName == "rootPath", !value.isEmpty {
+                rootPath = value
+            } else if elementName == "sourceInfoField", !value.isEmpty, let fieldName = currentSourceFieldName {
+                sourceInfo[fieldName] = value
+                currentSourceFieldName = nil
+            }
+
+            if elementName == "hash", let currentHash {
+                hashes.append(currentHash)
+                self.currentHash = nil
+            }
+
+            _ = elementStack.popLast()
+            currentValue = ""
+        }
+    }
 
     private static let payloadMetaKeys: Set<String> = [
         "PayloadType", "PayloadVersion", "PayloadUUID", "PayloadIdentifier",
