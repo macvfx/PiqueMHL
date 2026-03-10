@@ -54,6 +54,46 @@ On macOS 15.6 and later, Quick Look extensions may need to be explicitly allowed
 
 Go to **System Settings > Login Items & Extensions > Quick Look Extensions** and enable **Pique MHL**.
 
+## Troubleshooting
+
+If `.mhl` files stop previewing in Quick Look after building in Xcode, the usual cause is a stale extension registration from Xcode `DerivedData` or `ArchiveIntermediates`.
+
+Check the registered Quick Look entries:
+
+```sh
+pluginkit -m -A -D -v -p com.apple.quicklook.preview | rg piquemhl
+```
+
+The active installed extension should point to:
+
+```text
+/Applications/PiqueMHL.app/Contents/PlugIns/PiqueMHLPreview.appex
+```
+
+If you see additional `PiqueMHL` entries from `~/Library/Developer/Xcode/DerivedData/...`, remove the stale registrations and re-register the installed app:
+
+```sh
+pluginkit -r /Applications/PiqueMHL.app/Contents/PlugIns/PiqueMHLPreview.appex
+pluginkit -a /Applications/PiqueMHL.app/Contents/PlugIns/PiqueMHLPreview.appex
+pluginkit -e use -i io.macvfx.piquemhl.preview
+killall Finder
+```
+
+Or use:
+
+```sh
+./refresh_quicklook.zsh
+```
+
+If needed, remove stale Xcode build products from `~/Library/Developer/Xcode/DerivedData/` and repeat the commands above.
+
+Recommended workflow:
+
+1. Build/sign locally.
+2. Copy the finished app to `/Applications/PiqueMHL.app`.
+3. Re-register the installed extension with `pluginkit`.
+4. Avoid relying on `DerivedData` build products as your active installed copy.
+
 ## License
 
 Copyright 2026 Declarative IT GmbH
