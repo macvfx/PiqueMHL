@@ -2,9 +2,9 @@
 
 <img src="Pique/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png" alt="Pique icon" width="128" height="128" />
 
-### This project is now superceded by my MHL Media Tools, see https://github.com/macvfx/MHL/
+### This project is now superceded by my [MHL Media Trust Tools](https://github.com/macvfx/MHL/)
 
-A experimental macOS Quick Look extension for `.mhl` Media Hash List previews.
+A experimental macOS Quick Look extension for `.mhl` Media Hash List previews. Forked from [Pique](https://github.com/macadmins/pique)
 
 Select an `.mhl` file in Finder, press Space, and get a readable verification preview with creator metadata, source metadata, file counts, sizes, hashes, and the raw XML source.
 
